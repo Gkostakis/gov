@@ -89,14 +89,14 @@ body {
   white-space: nowrap;
 }
 .brand-name em {
-  color: var(--accent);
+  color: var(--white);
   font-style: normal;
 }
 .brand-dot {
   width: 5px; height: 5px; border-radius: 50%;
-  background: var(--accent);
+  background: var(--white);
   margin: 0 8px;
-  box-shadow: 0 0 6px var(--accent);
+  opacity: 0.4;
   flex-shrink: 0;
 }
 
@@ -110,15 +110,10 @@ body {
   border-right: 1px solid var(--border);
 }
 .tb-group.right {
-  margin-left: auto;
   border-right: none;
-  border-left: 1px solid var(--border);
-}
-.tb-group.search-group {
-  flex: 1;
-  min-width: 0;
-  padding: 0 10px;
-  border-right: none;
+  border-left: none;
+  padding: 0 10px 0 6px;
+  gap: 4px;
 }
 
 /* Buttons */
@@ -220,7 +215,7 @@ body {
 }
 
 /* Search */
-#search-wrap { position: relative; width: 100%; max-width: 360px; }
+#search-wrap { position: relative; width: 200px; flex-shrink: 0; }
 #search {
   font-family: var(--font); font-size: 12px; font-weight: 300; letter-spacing: 0.04em;
   padding: 6px 12px 6px 32px; border: 1px solid var(--border); border-radius: var(--radius);
@@ -811,7 +806,8 @@ input#m-importance::-moz-range-thumb {
         </div>
         <div class="drop-sep"></div>
         <div class="drop-header">View Mode</div>
-        <button class="drop-item" id="vi-3d"><span class="di-check" id="vi-chk-3d"> </span> 3D Graph</button>
+        <button class="drop-item" id="vi-3d"><span class="di-check" id="vi-chk-3d"> </span> 3D Force Graph</button>
+        <button class="drop-item" id="vi-cluster"><span class="di-check" id="vi-chk-cluster"> </span> Type Clusters</button>
       </div>
     </div>
     <!-- Links button: pauses/resumes particle flow on links -->
@@ -835,15 +831,11 @@ input#m-importance::-moz-range-thumb {
     </button>
   </div>
 
-  <!-- GROUP: SEARCH -->
-  <div class="tb-group search-group">
-    <div id="search-wrap">
-      <input type="text" id="search" placeholder="Search nodes…  (Ctrl+K)">
-    </div>
-  </div>
+  <!-- SPACER -->
+  <div style="flex:1;"></div>
 
-  <!-- GROUP: FILE -->
-  <div class="tb-group right">
+  <!-- GROUP: FILE + SEARCH (far right) -->
+  <div class="tb-group right" style="gap:5px;">
     <button class="btn" id="btn-import-json">Import</button>
     <div class="drop-wrap" id="save-wrap">
       <button class="btn primary" id="btn-save-menu">Save ▾</button>
@@ -868,6 +860,10 @@ input#m-importance::-moz-range-thumb {
       </div>
     </div>
     <input type="file" id="file-input" accept=".json" style="display:none">
+    <div style="width:1px;height:20px;background:var(--border);margin:0 2px;flex-shrink:0;"></div>
+    <div id="search-wrap">
+      <input type="text" id="search" placeholder="Search nodes…  (Ctrl+K)">
+    </div>
     <button class="btn btn-icon" id="btn-help" title="Help / keyboard shortcuts">?</button>
   </div>
 </div>
@@ -1208,6 +1204,7 @@ let lastDeleted = null;
 let qsSelectedIndex = -1;
 let filterBarVisible = false;
 let is3D = false;
+let isCluster = false;
 let graph3D = null;
 let currentOwners = [];
 let currentTags = [];
@@ -1408,6 +1405,14 @@ function ticked() {
 
   // Node positions
   nodeLayer.selectAll('.node-group').attr('transform',d=>`translate(${d.x},${d.y})`);
+
+  // Refresh cluster label positions
+  if(clusterForceActive) {
+    const centroids = getClusterCentroids();
+    g.select('#cluster-labels-layer').selectAll('g').attr('transform', function() {
+      // keep static — centroids don't move, only nodes do
+    });
+  }
 
   // Highlight logic
   const rootId = focusNodeId || hoveredNodeId;
@@ -2125,8 +2130,10 @@ function undoDelete() {
 
 // ── 3D GRAPH ───────────────────────────────────────────────
 function enable3D() {
+  if(isCluster){ disableCluster(); isCluster=false; document.getElementById('vi-chk-cluster').textContent=' '; }
   document.getElementById('graph').style.display='none';
   const c=document.getElementById('graph-3d');c.style.display='block';
+  document.getElementById('mode-indicator').textContent='3D MODE';
   document.getElementById('mode-indicator').style.display='block';
   if(simulation)simulation.stop();
 
@@ -2457,7 +2464,11 @@ function updateStatsTab() {
     ${sorted.map(nd=>{
       const conn=(nd.linksOut||[]).length+(nd.linksIn||[]).length;
       const tc2=getNodeColor(nd);
-      return `<div class="stats-top-row" onclick="selectNode('${nd.id}')"><span class="stats-top-name" style="color:${tc2}cc">${nd.name}</span><span class="stats-top-val">${conn} links</span></div>`;
+      const impPct=nd.importance;
+      return `<div class="stats-top-row" onclick="selectNode('${nd.id}');switchOverlayTab('properties')">
+        <span class="stats-top-name" style="color:${tc2}bb">${nd.name}</span>
+        <span class="stats-top-val">${conn} · <span style="color:var(--accent-hi)">${impPct}</span></span>
+      </div>`;
     }).join('')}
   </div>`;
 }
@@ -2564,12 +2575,111 @@ document.getElementById('btn-links-toggle').addEventListener('click', function()
 });
 
 document.getElementById('vi-3d').addEventListener('click',function(){
+  if(isCluster){ disableCluster(); isCluster=false; document.getElementById('vi-chk-cluster').textContent=' '; }
   is3D=!is3D;
   document.getElementById('vi-chk-3d').textContent=is3D?'✓':' ';
   if(is3D)enable3D();
   else{disable3D();simulation.alpha(0.3).restart();}
   visualsPanel.classList.remove('show');
-  notify(is3D?'3D mode activated':'Back to 2D');
+  notify(is3D?'3D force graph activated':'Back to 2D');
+});
+
+// ── CLUSTER VIEW ───────────────────────────────────────────
+// Groups nodes by Type using custom D3 cluster forces.
+// Each type gets a centroid; nodes are attracted toward their type's centroid.
+
+const TYPE_ORDER_LIST = ['Policy','Standard','Regulation','Process','Role','System','Risk','Control','Asset','Objective'];
+
+function getClusterCentroids() {
+  const W = svg2D.node().clientWidth, H = svg2D.node().clientHeight;
+  const types = [...new Set(nodes.map(n=>n.type||'(none)'))];
+  const count = types.length || 1;
+  const R = Math.min(W,H) * 0.28;
+  const cx = 0, cy = 0;
+  const centroids = {};
+  types.forEach((t,i)=>{
+    const angle = (i/count)*Math.PI*2 - Math.PI/2;
+    centroids[t] = { x: cx + R*Math.cos(angle), y: cy + R*Math.sin(angle) };
+  });
+  return centroids;
+}
+
+let clusterForceActive = false;
+function clusterForce(alpha) {
+  if(!clusterForceActive) return;
+  const centroids = getClusterCentroids();
+  const strength = 0.18;
+  nodes.forEach(node=>{
+    const t = node.type||'(none)';
+    const c = centroids[t];
+    if(!c) return;
+    node.vx += (c.x - node.x) * alpha * strength;
+    node.vy += (c.y - node.y) * alpha * strength;
+  });
+}
+
+function enableCluster() {
+  if(is3D){ disable3D(); is3D=false; document.getElementById('vi-chk-3d').textContent=' '; }
+  clusterForceActive = true;
+  document.getElementById('mode-indicator').textContent = 'CLUSTER MODE';
+  document.getElementById('mode-indicator').style.display = 'block';
+  // Weaken charge & link distance so cluster force dominates
+  simulation
+    .force('charge', d3.forceManyBody().strength(d => -60 - d.importance*0.8))
+    .force('link', d3.forceLink().id(d=>d.id).distance(30).strength(0.15))
+    .force('cluster', clusterForce)
+    .alpha(0.9).restart();
+  // Draw type centroid labels
+  drawClusterLabels();
+}
+
+function disableCluster() {
+  clusterForceActive = false;
+  document.getElementById('mode-indicator').style.display = 'none';
+  svg2D.select('#cluster-labels-layer').remove();
+  // Restore original forces
+  simulation
+    .force('charge', d3.forceManyBody().strength(d => -150 - d.importance * 1.5))
+    .force('link', d3.forceLink().id(d=>d.id).distance(d=>{
+      const s=nodes.find(n=>n.id===(typeof d.source==='object'?d.source.id:d.source));
+      const t=nodes.find(n=>n.id===(typeof d.target==='object'?d.target.id:d.target));
+      const mi=s&&t?Math.min(s.importance,t.importance):50;
+      return 60+mi*0.8;
+    }).strength(0.4))
+    .force('cluster', null)
+    .alpha(0.6).restart();
+}
+
+function drawClusterLabels() {
+  svg2D.select('#cluster-labels-layer').remove();
+  const labelLayer = g.insert('g','#links-layer').attr('id','cluster-labels-layer');
+  const centroids = getClusterCentroids();
+  Object.entries(centroids).forEach(([type, pos])=>{
+    const color = TYPE_COLORS[type] || '#4433ff';
+    const typeNodes = nodes.filter(n=>(n.type||'(none)')===type);
+    if(!typeNodes.length) return;
+    const grp = labelLayer.append('g').attr('transform',`translate(${pos.x},${pos.y})`);
+    // Background pill
+    grp.append('ellipse')
+      .attr('rx', 38).attr('ry', 13)
+      .attr('fill', color).attr('opacity', 0.08)
+      .attr('stroke', color).attr('stroke-width', 0.5).attr('stroke-opacity', 0.25);
+    grp.append('text')
+      .attr('text-anchor','middle').attr('dominant-baseline','middle')
+      .attr('font-family',"'Sunflower','Helvetica Neue',sans-serif")
+      .attr('font-size', 9).attr('font-weight', 500)
+      .attr('fill', color).attr('opacity', 0.6)
+      .text(type + ' (' + typeNodes.length + ')');
+  });
+}
+
+document.getElementById('vi-cluster').addEventListener('click',function(){
+  isCluster=!isCluster;
+  document.getElementById('vi-chk-cluster').textContent=isCluster?'✓':' ';
+  if(isCluster)enableCluster();
+  else disableCluster();
+  visualsPanel.classList.remove('show');
+  notify(isCluster?'Type Clusters view activated':'Back to free layout');
 });
 
 // ── SAVE DROPDOWN ──────────────────────────────────────────
