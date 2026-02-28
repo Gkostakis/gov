@@ -775,31 +775,15 @@ input#m-importance::-moz-range-thumb {
     <span class="brand-name"><em>ECO</em>.SYSTEM.OS</span>
   </div>
 
-  <!-- GROUP: LAYOUT -->
-  <div class="tb-group">
-    <button class="btn" id="btn-reset-layout" title="Relayout graph">
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-        <path d="M2 7a5 5 0 1 0 1.2-3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-        <polyline points="0.5,3.5 3.5,4 3,0.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Relayout
-    </button>
-    <button class="btn btn-icon" id="btn-zoom-fit-tb" title="Zoom to fit">
-      <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-        <path d="M1 4.5V1H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M9.5 1H13V4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M13 9.5V13H9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M4.5 13H1V9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-  </div>
+  <!-- GROUP: LAYOUT (empty placeholder for spacing) -->
+  <div class="tb-group" style="padding:0 4px;"></div>
 
   <!-- GROUP: CREATE -->
   <div class="tb-group">
     <button class="btn primary" id="btn-add">+ Node</button>
   </div>
 
-  <!-- GROUP: VISUALS -->
+  <!-- GROUP: VISUALS + LINKS + RELAYOUT -->
   <div class="tb-group">
     <div class="drop-wrap" id="visuals-wrap">
       <button class="btn" id="btn-visuals">
@@ -826,13 +810,24 @@ input#m-importance::-moz-range-thumb {
           </div>
         </div>
         <div class="drop-sep"></div>
-        <div class="drop-header">Display</div>
-        <button class="drop-item" id="vi-link-labels"><span class="di-check" id="vi-chk-links"> </span> Link Labels</button>
-        <div class="drop-sep"></div>
         <div class="drop-header">View Mode</div>
         <button class="drop-item" id="vi-3d"><span class="di-check" id="vi-chk-3d"> </span> 3D Graph</button>
       </div>
     </div>
+    <!-- Links button: pauses/resumes particle flow on links -->
+    <button class="btn" id="btn-links-toggle" title="Pause / resume link animation">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+        <path d="M2 2h2.5v8H2zM7.5 2H10v8H7.5z" fill="currentColor" opacity="0.7"/>
+      </svg>
+      Links
+    </button>
+    <button class="btn" id="btn-reset-layout" title="Relayout graph">
+      <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+        <path d="M2 7a5 5 0 1 0 1.2-3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <polyline points="0.5,3.5 3.5,4 3,0.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Relayout
+    </button>
     <button class="btn btn-icon" id="btn-toggle-filters" title="Toggle filters">
       <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
         <path d="M1.5 3.5h11M3.5 7h7M5.5 10.5h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -968,9 +963,8 @@ input#m-importance::-moz-range-thumb {
   <!-- 2D SVG -->
   <svg id="graph">
     <defs>
-      <marker id="arrow-link" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-        <path d="M0,0.5 L0,5.5 L6,3 z" fill="context-stroke" opacity="0.55"/>
-      </marker>
+      <!-- per-link arrow markers are created dynamically in JS -->
+      <defs id="dynamic-defs"></defs>
       <filter id="glow-base" x="-40%" y="-40%" width="180%" height="180%">
         <feGaussianBlur stdDeviation="3" result="blur"/>
         <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -1004,7 +998,7 @@ input#m-importance::-moz-range-thumb {
 <div id="footer">
   <span class="footer-left">ECO.SYSTEM.OS Governance Mapper — For personal use only.</span>
   <span>© Constantinos Tolias 2026. All rights reserved.</span>
-  <span class="footer-version">v1.031</span>
+  <span class="footer-version">v1.032</span>
 </div>
 
 <div id="tooltip"></div>
@@ -1160,7 +1154,7 @@ input#m-importance::-moz-range-thumb {
 <!-- ═══ SCRIPT ════════════════════════════════════════════════ -->
 <script>
 // ════════════════════════════════════════════════════════════
-//  ECO.SYSTEM.OS — Governance Network Mapper  v1.031
+//  ECO.SYSTEM.OS — Governance Network Mapper  v1.032
 // ════════════════════════════════════════════════════════════
 
 // ── Constants ─────────────────────────────────────────────
@@ -1217,6 +1211,7 @@ let is3D = false;
 let graph3D = null;
 let currentOwners = [];
 let currentTags = [];
+let linksAnimating = true; // false = particles frozen
 
 // ── Helpers ────────────────────────────────────────────────
 const uid = () => 'n' + Math.random().toString(36).substr(2, 8);
@@ -1383,7 +1378,9 @@ function ticked() {
       const speed = 0.003 + (sN?(sN.importance/100)*0.004:0);
       particleState.set(key,[{t:0,speed},{t:0.5,speed}]);
     }
-    particleState.get(key).forEach(p=>{p.t+=p.speed; if(p.t>1)p.t-=1;});
+    particleState.get(key).forEach(p=>{
+      if(linksAnimating){p.t+=p.speed; if(p.t>1)p.t-=1;}
+    });
   });
   const activeKeys = new Set(links.map(d=>{
     const sid=typeof d.source==='object'?d.source.id:d.source;
@@ -1604,12 +1601,35 @@ function updateNodeStyle(sel) {
   }
 }
 
+function getOrCreateArrowMarker(color) {
+  const safeId = 'arrow-' + color.replace('#','').replace(/[^a-zA-Z0-9]/g,'');
+  const defs = document.getElementById('dynamic-defs');
+  if (!defs.querySelector('#'+safeId)) {
+    const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+    marker.setAttribute('id', safeId);
+    marker.setAttribute('markerWidth','7'); marker.setAttribute('markerHeight','7');
+    marker.setAttribute('refX','5'); marker.setAttribute('refY','3.5');
+    marker.setAttribute('orient','auto'); marker.setAttribute('markerUnits','userSpaceOnUse');
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M0,0.5 L0,6.5 L7,3.5 z');
+    path.setAttribute('fill', color); path.setAttribute('opacity','0.75');
+    marker.appendChild(path); defs.appendChild(marker);
+  }
+  return 'url(#'+safeId+')';
+}
+
 function updateLinkStyle(sel) {
-  sel.attr('stroke',d=>{
-    const sid=typeof d.source==='object'?d.source.id:d.source;
-    const sN=nodes.find(n=>n.id===sid);
-    return sN?getNodeColor(sN):'#2203ff';
-  }).attr('stroke-width',1).attr('stroke-opacity',0.28).attr('marker-end','url(#arrow-link)');
+  sel.each(function(d) {
+    const sid = typeof d.source==='object' ? d.source.id : d.source;
+    const sN = nodes.find(n=>n.id===sid);
+    const color = sN ? getNodeColor(sN) : '#2203ff';
+    const markerId = getOrCreateArrowMarker(color);
+    d3.select(this)
+      .attr('stroke', color)
+      .attr('stroke-width', 1)
+      .attr('stroke-opacity', 0.28)
+      .attr('marker-end', markerId);
+  });
 }
 
 // ── Shape Morphing ─────────────────────────────────────────
@@ -2357,47 +2377,81 @@ function updateStatsTab() {
   const noType=nodes.filter(nd=>!nd.type).length;
   const noStatus=nodes.filter(nd=>!nd.status).length;
   const noNotes=nodes.filter(nd=>!nd.notes).length;
-  const allTagsFlat=nodes.flatMap(nd=>nd.tags||[]);
-  const uniqueTags=new Set(allTagsFlat).size;
+  const uniqueTags=new Set(nodes.flatMap(nd=>nd.tags||[])).size;
 
   const typeCounts={};nodes.forEach(nd=>{const t=nd.type||'(none)';typeCounts[t]=(typeCounts[t]||0)+1;});
   const statusCounts={};nodes.forEach(nd=>{const s=nd.status||'(none)';statusCounts[s]=(statusCounts[s]||0)+1;});
-
+  const sortedTypes=Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]);
+  const sortedStatuses=Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]);
   const maxTC=Math.max(...Object.values(typeCounts),1);
   const maxSC=Math.max(...Object.values(statusCounts),1);
 
   const sorted=[...nodes].sort((a,b)=>(b.linksOut?.length||0)+(b.linksIn?.length||0)-(a.linksOut?.length||0)-(a.linksIn?.length||0)).slice(0,6);
 
+  // Build SVG pie chart for type distribution
+  function buildPie(entries, colorFn, size=80) {
+    if(!entries.length||!n) return '';
+    const total=entries.reduce((s,[,c])=>s+c,0);
+    if(!total) return '';
+    const cx=size/2, cy=size/2, r=size/2-4, ir=r*0.45;
+    let angle=-Math.PI/2, paths='', legends='';
+    entries.forEach(([label, count])=>{
+      const slice=(count/total)*Math.PI*2;
+      const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+      const x2=cx+r*Math.cos(angle+slice), y2=cy+r*Math.sin(angle+slice);
+      const xi1=cx+ir*Math.cos(angle), yi1=cy+ir*Math.sin(angle);
+      const xi2=cx+ir*Math.cos(angle+slice), yi2=cy+ir*Math.sin(angle+slice);
+      const large=slice>Math.PI?1:0;
+      const color=colorFn(label);
+      paths+=`<path d="M${xi1},${yi1} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${xi2},${yi2} A${ir},${ir} 0 ${large},0 ${xi1},${yi1} Z" fill="${color}" opacity="0.85" stroke="none"/>`;
+      angle+=slice;
+    });
+    // Center label
+    const centerLabel=`<text x="${cx}" y="${cy+1}" text-anchor="middle" dominant-baseline="middle" font-family="Sunflower,sans-serif" font-size="9" font-weight="700" fill="rgba(215,215,215,0.7)">${total}</text>`;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}${centerLabel}</svg>`;
+  }
+
+  const typePie=buildPie(sortedTypes, t=>TYPE_COLORS[t]||'#4433ff', 90);
+  const statusPie=buildPie(sortedStatuses, s=>STATUS_COLORS[s]||'#888', 90);
+
+  function pieRow(pie, legendEntries, colorFn) {
+    if(!n) return '<div style="font-size:9px;color:var(--text-muted);padding:8px 0;">No data</div>';
+    const legends=legendEntries.slice(0,6).map(([label,count])=>{
+      const c=colorFn(label);
+      const pct=n?Math.round(count/n*100):0;
+      return `<div style="display:flex;align-items:center;gap:5px;padding:1px 0;">
+        <span style="width:6px;height:6px;border-radius:50%;background:${c};flex-shrink:0;display:inline-block;"></span>
+        <span style="font-size:8px;color:rgba(215,215,215,0.5);font-weight:300;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>
+        <span style="font-size:8px;color:rgba(215,215,215,0.35);font-weight:500;min-width:22px;text-align:right;">${count}</span>
+      </div>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:10px;">${pie}<div style="flex:1;min-width:0;">${legends}</div></div>`;
+  }
+
   el.innerHTML=`
   <div class="stats-section"><div class="stats-title">Graph Metrics</div>
-    <div class="stats-row"><span class="sk">Total Nodes</span><span class="sv accent">${n}</span></div>
-    <div class="stats-row"><span class="sk">Total Links</span><span class="sv accent">${l}</span></div>
+    <div class="stats-row"><span class="sk">Nodes</span><span class="sv accent">${n}</span></div>
+    <div class="stats-row"><span class="sk">Links</span><span class="sv accent">${l}</span></div>
     <div class="stats-row"><span class="sk">Avg Degree</span><span class="sv">${avgDeg}</span></div>
-    <div class="stats-row"><span class="sk">Graph Density</span><span class="sv">${density}</span></div>
+    <div class="stats-row"><span class="sk">Density</span><span class="sv">${density}</span></div>
     <div class="stats-row"><span class="sk">Hub Nodes (≥3)</span><span class="sv">${hubs}</span></div>
     <div class="stats-row"><span class="sk">Orphan Nodes</span><span class="sv ${orphans>0?'red':'green'}">${orphans}</span></div>
   </div>
   <div class="stats-section"><div class="stats-title">Importance</div>
-    <div class="stats-row"><span class="sk">Avg Importance</span><span class="sv">${avgImp}</span></div>
+    <div class="stats-row"><span class="sk">Average</span><span class="sv">${avgImp}</span></div>
     <div class="stats-row"><span class="sk">Highest</span><span class="sv accent">${maxImpNode.name!=='—'?maxImpNode.name+' ('+maxImpNode.importance+')':'—'}</span></div>
   </div>
   <div class="stats-section"><div class="stats-title">Coverage</div>
     <div class="stats-row"><span class="sk">Unique Tags</span><span class="sv">${uniqueTags}</span></div>
     <div class="stats-row"><span class="sk">No Type</span><span class="sv ${noType>0?'red':'green'}">${noType}</span></div>
     <div class="stats-row"><span class="sk">No Status</span><span class="sv ${noStatus>0?'red':'green'}">${noStatus}</span></div>
-    <div class="stats-row"><span class="sk">No Notes</span><span class="sv ${noNotes>0?'':'green'}">${noNotes}</span></div>
+    <div class="stats-row"><span class="sk">No Notes</span><span class="sv ${noNotes>2?'':'green'}">${noNotes}</span></div>
   </div>
   <div class="stats-section"><div class="stats-title">Type Distribution</div>
-    ${Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).map(([t,c])=>{
-      const tc2=TYPE_COLORS[t]||'#4433ff';
-      return `<div class="type-dist-row"><span class="type-dist-name">${t}</span><div class="type-dist-bar-wrap"><div class="type-dist-bar" style="width:${(c/maxTC*100).toFixed(0)}%;background:${tc2}66"></div></div><span class="type-dist-count">${c}</span></div>`;
-    }).join('')}
+    ${n ? pieRow(typePie, sortedTypes, t=>TYPE_COLORS[t]||'#4433ff') : '<div style="font-size:9px;color:var(--text-muted);">No data</div>'}
   </div>
   <div class="stats-section"><div class="stats-title">Status Distribution</div>
-    ${Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]).map(([s,c])=>{
-      const sc=STATUS_COLORS[s]||'#888';
-      return `<div class="type-dist-row"><span class="type-dist-name">${s}</span><div class="type-dist-bar-wrap"><div class="type-dist-bar" style="width:${(c/maxSC*100).toFixed(0)}%;background:${sc}66"></div></div><span class="type-dist-count">${c}</span></div>`;
-    }).join('')}
+    ${n ? pieRow(statusPie, sortedStatuses, s=>STATUS_COLORS[s]||'#888') : '<div style="font-size:9px;color:var(--text-muted);">No data</div>'}
   </div>
   <div class="stats-section"><div class="stats-title">Most Connected</div>
     ${sorted.map(nd=>{
@@ -2447,7 +2501,7 @@ function doZoomFit() {
     .call(zoomBehavior.transform,d3.zoomIdentity.translate(tx,ty).scale(scale));
 }
 document.getElementById('btn-zoom-fit').onclick=doZoomFit;
-document.getElementById('btn-zoom-fit-tb').onclick=doZoomFit;
+// zoom-fit-tb removed from toolbar — only in bottom-left canvas button
 
 // ── TOOLBAR ACTIONS ────────────────────────────────────────
 document.getElementById('btn-add').onclick=()=>openModal(uid());
@@ -2496,12 +2550,17 @@ setCanvasBg('#050505');
 bgColorInput.addEventListener('input',e=>setCanvasBg(e.target.value));
 bgColorInput.addEventListener('change',e=>setCanvasBg(e.target.value));
 
-document.getElementById('vi-link-labels').addEventListener('click',function(){
-  showLinkLabels=!showLinkLabels;
-  document.getElementById('vi-chk-links').textContent=showLinkLabels?'✓':' ';
-  if(!showLinkLabels)linkLabelLayer.selectAll('.ll-group').remove();
-  simulation.alpha(0.05).restart();
-  notify(showLinkLabels?'Link labels on':'Link labels off');
+// Links button: toggle particle animation on/off
+document.getElementById('btn-links-toggle').addEventListener('click', function() {
+  linksAnimating = !linksAnimating;
+  this.classList.toggle('active', !linksAnimating);
+  // Swap icon between pause and play
+  this.querySelector('svg').innerHTML = linksAnimating
+    ? '<path d="M2 2h2.5v8H2zM7.5 2H10v8H7.5z" fill="currentColor" opacity="0.7"/>'
+    : '<path d="M2 2l9 4.5L2 11V2z" fill="currentColor" opacity="0.8"/>';
+  // Keep simulation ticking so positions update; particles just freeze
+  if (!linksAnimating) simulation.alpha(0.01).restart();
+  notify(linksAnimating ? 'Link animation resumed' : 'Link animation paused');
 });
 
 document.getElementById('vi-3d').addEventListener('click',function(){
@@ -2517,7 +2576,7 @@ document.getElementById('vi-3d').addEventListener('click',function(){
 document.getElementById('btn-save-menu').onclick=e=>{e.stopPropagation();document.getElementById('save-panel').classList.toggle('show');};
 
 function graphToJSON(){
-  return JSON.stringify({version:'1.031',nodes:nodes.map(n=>({...n,vx:0,vy:0,fx:null,fy:null,_dragging:undefined})),links:[],customTypes,customStatuses},null,2);
+  return JSON.stringify({version:'1.032',nodes:nodes.map(n=>({...n,vx:0,vy:0,fx:null,fy:null,_dragging:undefined})),links:[],customTypes,customStatuses},null,2);
 }
 function loadFromJSON(json) {
   const data=typeof json==='string'?JSON.parse(json):json;
