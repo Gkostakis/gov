@@ -147,7 +147,7 @@ Saved JSON files follow this structure:
 - Type field is fully editable — create or rename types freely
 - App description updated
 
-### v1.032
+### v1.039
 - Initial public release
 
 ---
@@ -158,4 +158,4 @@ For personal and internal use. Not licensed for commercial redistribution.
 
 ---
 
-*ECO.SYSTEM.OS — map everything.*
+*ECO.SYSTEM.OS — GOVERNANCE MAPPER*
