@@ -1024,6 +1024,9 @@ input#m-importance::-moz-range-thumb {
 .pin-row input[type="checkbox"] { accent-color: var(--ink); cursor: pointer; }
 
 .modal-meta { font-size: 8px; font-weight: 300; color: var(--ink-4); margin-top: 4px; display: flex; gap: 14px; }
+.modal-actions { display: flex; gap: 6px; margin-top: 20px; }
+.modal-actions .left { margin-right: auto; display: flex; gap: 6px; }
+
 /* Modal two-column layout */
 .modal-cols {
   display: grid;
@@ -1035,9 +1038,6 @@ input#m-importance::-moz-range-thumb {
 @media (max-width: 640px) {
   .modal-cols { grid-template-columns: 1fr; gap: 0; }
 }
-
-.modal-actions { display: flex; gap: 6px; margin-top: 20px; }
-.modal-actions .left { margin-right: auto; display: flex; gap: 6px; }
 
 /* Modal buttons */
 .mbtn {
@@ -1369,7 +1369,7 @@ input#m-importance::-moz-range-thumb {
   <h2 id="modal-title">Add <span class="accent">Node</span></h2>
 
   <div class="modal-cols">
-    <!-- ── LEFT COLUMN: Identity · Appearance · Tags ── -->
+    <!-- ── LEFT COLUMN ── -->
     <div class="modal-col">
 
       <div class="msec">
@@ -1395,7 +1395,6 @@ input#m-importance::-moz-range-thumb {
               <div class="imp-track-wrap"><input type="range" id="m-importance" min="0" max="100" value="50"></div>
               <span class="imp-val" id="m-importance-val">50</span>
             </div>
-            <div class="imp-labs"></div>
           </div>
         </div>
       </div>
@@ -1420,7 +1419,7 @@ input#m-importance::-moz-range-thumb {
 
     </div><!-- /left col -->
 
-    <!-- ── RIGHT COLUMN: Relationships · Notes · Custom Props · Options ── -->
+    <!-- ── RIGHT COLUMN ── -->
     <div class="modal-col">
 
       <div class="msec">
@@ -1759,14 +1758,6 @@ function ticked() {
 
   // Node positions
   nodeLayer.selectAll('.node-group').attr('transform',d=>`translate(${d.x},${d.y})`);
-
-  // Refresh cluster label positions
-  if(clusterForceActive) {
-    const centroids = getClusterCentroids();
-    g.select('#cluster-labels-layer').selectAll('g').attr('transform', function() {
-      // keep static — centroids don't move, only nodes do
-    });
-  }
 
   // Highlight logic
   const rootId = focusNodeId || hoveredNodeId;
@@ -2944,16 +2935,6 @@ document.getElementById('btn-links-toggle').addEventListener('click', function()
   notify(linksAnimating ? 'Link animation resumed' : 'Link animation paused');
 });
 
-document.getElementById('vi-network').addEventListener('click',function(){
-  // Disable 3D and cluster if active
-  if(is3D){ disable3D(); is3D=false; document.getElementById('vi-chk-3d').textContent=' '; }
-  if(isCluster){ disableRings(); isCluster=false; document.getElementById('vi-chk-cluster').textContent=' '; }
-  document.getElementById('vi-chk-network').textContent='✓';
-  simulation.alpha(0.3).restart();
-  visualsPanel.classList.remove('show');
-  notify('Network view activated');
-});
-
 document.getElementById('vi-3d').addEventListener('click',function(){
   if(isCluster){ disableRings(); isCluster=false; document.getElementById('vi-chk-cluster').textContent=' '; }
   is3D=!is3D;
@@ -2965,23 +2946,30 @@ document.getElementById('vi-3d').addEventListener('click',function(){
   notify(is3D?'3D force graph activated':'Back to 2D');
 });
 
+// ── NETWORK VIEW (Default) ─────────────────────────────────
+document.getElementById('vi-network').addEventListener('click', function() {
+  if (is3D)      { disable3D();    is3D=false;    document.getElementById('vi-chk-3d').textContent=' '; }
+  if (isCluster) { disableRings(); isCluster=false; document.getElementById('vi-chk-cluster').textContent=' '; }
+  document.getElementById('vi-chk-network').textContent = '✓';
+  simulation.alpha(0.3).restart();
+  visualsPanel.classList.remove('show');
+  notify('Network view activated');
+});
+
 // ── IMPORTANCE RINGS VIEW ──────────────────────────────────
-// Arranges nodes in 4 concentric rings based on importance tier.
-// Ring 1 (outermost): 0–24   → Low
-// Ring 2:            25–49   → Medium
-// Ring 3:            50–74   → High
-// Ring 4 (innermost): 75–100 → Critical
-// Each node is attracted toward its ring radius via a custom radial force.
+// Nodes arranged in 4 concentric rings by importance tier.
+// A radial D3 force pulls each node toward its ring radius.
+// Rings: Critical 75–100 (innermost) → High 50–74 → Medium 25–49 → Low 0–24 (outermost)
 
 const RING_DEFS = [
-  { min: 75, max: 100, label: 'Critical',  r: 80  },
-  { min: 50, max: 74,  label: 'High',      r: 190 },
-  { min: 25, max: 49,  label: 'Medium',    r: 310 },
-  { min: 0,  max: 24,  label: 'Low',       r: 440 },
+  { min: 75, max: 100, label: 'Critical', r: 80  },
+  { min: 50, max: 74,  label: 'High',     r: 195 },
+  { min: 25, max: 49,  label: 'Medium',   r: 320 },
+  { min: 0,  max: 24,  label: 'Low',      r: 450 },
 ];
 
 function getRing(imp) {
-  const v = imp ?? 50;
+  const v = (imp == null) ? 50 : imp;
   return RING_DEFS.find(rd => v >= rd.min && v <= rd.max) || RING_DEFS[2];
 }
 
@@ -2989,19 +2977,18 @@ let ringForceActive = false;
 
 function ringForce(alpha) {
   if (!ringForceActive) return;
-  const strength = 0.22;
+  const str = 0.2;
   nodes.forEach(node => {
     const ring = getRing(node.importance);
     const dx = node.x || 0, dy = node.y || 0;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-    // Pull/push node toward the ring radius
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const delta = (dist - ring.r) / dist;
-    node.vx -= dx * delta * alpha * strength;
-    node.vy -= dy * delta * alpha * strength;
-    // Light angular spread — prevent nodes stacking at same angle
+    node.vx -= dx * delta * alpha * str;
+    node.vy -= dy * delta * alpha * str;
+    // Gentle angular nudge to prevent piling
     const angle = Math.atan2(dy, dx);
-    node.vx += Math.cos(angle + 0.08) * alpha * 0.015;
-    node.vy += Math.sin(angle + 0.08) * alpha * 0.015;
+    node.vx += Math.cos(angle + 0.07) * alpha * 0.012;
+    node.vy += Math.sin(angle + 0.07) * alpha * 0.012;
   });
 }
 
@@ -3011,59 +2998,56 @@ function enableRings() {
   document.getElementById('mode-indicator').textContent = 'IMPORTANCE RINGS';
   document.getElementById('mode-indicator').style.display = 'block';
   simulation
-    .force('charge', d3.forceManyBody().strength(d => -40 - (d.importance||50) * 0.4))
-    .force('link',   d3.forceLink().id(d => d.id).distance(28).strength(0.08))
-    .force('rings',  ringForce)
-    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance||50) + 10).strength(0.9))
-    .alpha(1).alphaDecay(0.012).restart();
+    .force('charge',    d3.forceManyBody().strength(d => -35 - (d.importance || 50) * 0.35))
+    .force('link',      d3.forceLink().id(d => d.id).distance(24).strength(0.06))
+    .force('rings',     ringForce)
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance || 50) + 9).strength(0.95))
+    .alpha(1).alphaDecay(0.01).restart();
   drawRingDecorations();
 }
 
 function disableRings() {
   ringForceActive = false;
   document.getElementById('mode-indicator').style.display = 'none';
-  svg2D.select('#ring-decorations-layer').remove();
-  // Restore standard forces
+  svg2D.select('#ring-deco-layer').remove();
+  // Restore original forces
   simulation
-    .force('charge', d3.forceManyBody().strength(d => -150 - (d.importance||50) * 1.5))
-    .force('link', d3.forceLink().id(d => d.id).distance(d => {
-      const s = nodes.find(n => n.id === (typeof d.source === 'object' ? d.source.id : d.source));
-      const t = nodes.find(n => n.id === (typeof d.target === 'object' ? d.target.id : d.target));
-      const mi = s && t ? Math.min(s.importance||50, t.importance||50) : 50;
+    .force('charge',    d3.forceManyBody().strength(d => -150 - d.importance * 1.5))
+    .force('link',      d3.forceLink().id(d => d.id).distance(d => {
+      const s = nodes.find(n => n.id === (typeof d.source==='object'?d.source.id:d.source));
+      const t = nodes.find(n => n.id === (typeof d.target==='object'?d.target.id:d.target));
+      const mi = s && t ? Math.min(s.importance, t.importance) : 50;
       return 60 + mi * 0.8;
     }).strength(0.4))
-    .force('rings', null)
-    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance||50) + 16).strength(0.85))
+    .force('rings',     null)
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance) + 16).strength(0.85))
     .alpha(0.6).alphaDecay(0.028).restart();
 }
 
 function drawRingDecorations() {
-  svg2D.select('#ring-decorations-layer').remove();
-  // Insert behind links layer
-  const layer = g.insert('g', '#links-layer').attr('id', 'ring-decorations-layer');
+  svg2D.select('#ring-deco-layer').remove();
+  const layer = g.insert('g', '#links-layer').attr('id', 'ring-deco-layer');
   RING_DEFS.forEach(rd => {
-    const typeNodes = nodes.filter(n => {
-      const v = n.importance ?? 50;
+    const tierNodes = nodes.filter(n => {
+      const v = n.importance == null ? 50 : n.importance;
       return v >= rd.min && v <= rd.max;
     });
-    if (!typeNodes.length) return;
-    // Faint circle guide
+    if (!tierNodes.length) return;
+    // Dashed guide circle
     layer.append('circle')
       .attr('r', rd.r)
       .attr('fill', 'none')
-      .attr('stroke', 'rgba(255,255,255,0.055)')
+      .attr('stroke', 'rgba(255,255,255,0.06)')
       .attr('stroke-width', 1)
-      .attr('stroke-dasharray', '4 6');
-    // Label at top of circle
-    const labelY = -rd.r - 8;
+      .attr('stroke-dasharray', '5 7');
+    // Label at top
     layer.append('text')
-      .attr('x', 0).attr('y', labelY)
+      .attr('x', 0).attr('y', -(rd.r + 9))
       .attr('text-anchor', 'middle')
       .attr('font-family', "'Sunflower','Helvetica Neue',sans-serif")
       .attr('font-size', 7).attr('font-weight', 700)
       .attr('letter-spacing', 2)
-      .attr('fill', 'rgba(255,255,255,0.22)')
-      .attr('text-transform', 'uppercase')
+      .attr('fill', 'rgba(255,255,255,0.2)')
       .text(rd.label.toUpperCase() + '  ' + rd.min + '–' + rd.max);
   });
 }
