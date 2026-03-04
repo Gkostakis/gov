@@ -2968,32 +2968,58 @@ document.getElementById('vi-3d').addEventListener('click',function(){
 
 // ── NETWORK VIEW (Default) ─────────────────────────────────
 document.getElementById('vi-network').addEventListener('click', function() {
-  if (is3D)      { is3D=false; document.getElementById('vi-chk-3d').textContent=' ';
-                   document.getElementById('graph').style.display='';
-                   const c=document.getElementById('graph-3d'); c.style.display='none';
-                   document.getElementById('mode-indicator').style.display='none';
-                   if(graph3D){try{c.innerHTML='';}catch(e){}graph3D=null;}
-                   if(simulation)simulation.stop(); }
-  if (isCluster) { isCluster=false; document.getElementById('vi-chk-cluster').textContent=' ';
-                   ringForceActive=false;
-                   svg2D.select('#ring-deco-layer').remove();
-                   document.getElementById('mode-indicator').style.display='none'; }
+  // ── Tear down any active view ──────────────────────────────
+  if (is3D) {
+    is3D = false;
+    document.getElementById('vi-chk-3d').textContent = ' ';
+    document.getElementById('graph').style.display = '';
+    const c = document.getElementById('graph-3d');
+    c.style.display = 'none';
+    if (graph3D) { try { c.innerHTML = ''; } catch(e) {} graph3D = null; }
+  }
+  if (isCluster) {
+    isCluster = false;
+    ringForceActive = false;
+    document.getElementById('vi-chk-cluster').textContent = ' ';
+    svg2D.select('#ring-deco-layer').remove();
+  }
+  document.getElementById('mode-indicator').style.display = 'none';
   document.getElementById('vi-chk-network').textContent = '✓';
-  // Reset all node positions to a neutral cluster — Network builds its own layout from scratch
-  resetNodePositions();
+
+  // ── Scatter every non-pinned node to a neutral position ────
+  // Identical starting geometry to a fresh page load
+  nodes.forEach(n => {
+    if (n.fx != null) return;
+    const angle = Math.random() * Math.PI * 2;
+    const r     = Math.random() * 80;
+    n.x  = Math.cos(angle) * r;
+    n.y  = Math.sin(angle) * r;
+    n.vx = 0;
+    n.vy = 0;
+  });
+
+  // ── Restore forces exactly as initGraph() sets them ────────
   simulation
+    .force('link',      d3.forceLink().id(d => d.id)
+      .distance(d => {
+        const s = nodes.find(n => n.id === (typeof d.source==='object' ? d.source.id : d.source));
+        const t = nodes.find(n => n.id === (typeof d.target==='object' ? d.target.id : d.target));
+        const mi = s && t ? Math.min(s.importance, t.importance) : 50;
+        return 60 + mi * 0.8;
+      })
+      .strength(0.4))
     .force('charge',    d3.forceManyBody().strength(d => -150 - d.importance * 1.5))
-    .force('link',      d3.forceLink().id(d => d.id).distance(d => {
-      const s = nodes.find(n => n.id === (typeof d.source==='object'?d.source.id:d.source));
-      const t = nodes.find(n => n.id === (typeof d.target==='object'?d.target.id:d.target));
-      const mi = s && t ? Math.min(s.importance, t.importance) : 50;
-      return 60 + mi * 0.8;
-    }).strength(0.4))
-    .force('rings',     null)
     .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance) + 16).strength(0.85))
-    .alpha(1).alphaDecay(0.028).restart();
+    .force('center',    d3.forceCenter(0, 0))
+    .force('rings',     null);
+
+  // Rebind current node + link data so the simulation is fully fresh
+  simulation.nodes(nodes);
+  simulation.force('link').links(links);
+  simulation.alpha(0.9).alphaDecay(0.028).restart();
+
   visualsPanel.classList.remove('show');
-  notify('Network view activated');
+  notify('Network view reset');
 });
 
 // ── IMPORTANCE RINGS VIEW ──────────────────────────────────
@@ -3037,14 +3063,17 @@ function enableRings() {
   ringForceActive = true;
   document.getElementById('mode-indicator').textContent = 'IMPORTANCE RINGS';
   document.getElementById('mode-indicator').style.display = 'block';
-  // Start from a neutral cluster so rings build their layout from scratch
+  // Scatter to neutral before applying ring forces
   resetNodePositions();
   simulation
     .force('charge',    d3.forceManyBody().strength(d => -35 - (d.importance || 50) * 0.35))
     .force('link',      d3.forceLink().id(d => d.id).distance(24).strength(0.06))
     .force('rings',     ringForce)
-    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance || 50) + 9).strength(0.95))
-    .alpha(1).alphaDecay(0.01).restart();
+    .force('center',    null)
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d.importance || 50) + 9).strength(0.95));
+  simulation.nodes(nodes);
+  simulation.force('link').links(links);
+  simulation.alpha(1).alphaDecay(0.01).restart();
   drawRingDecorations();
 }
 
