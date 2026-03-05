@@ -147,7 +147,7 @@ Saved JSON files follow this structure:
 - Type field is fully editable — create or rename types freely
 - App description updated
 
-### v1.039
+### v1.041
 - Initial public release
 
 ---
