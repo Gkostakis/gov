@@ -1979,8 +1979,12 @@ function initGraph() {
     .on('zoom', e => { zoomTransform = e.transform; g.attr('transform', e.transform); });
   svg2D.call(zoomBehavior);
 
-  const W = svg2D.node().clientWidth, H = svg2D.node().clientHeight;
-  svg2D.call(zoomBehavior.transform, d3.zoomIdentity.translate(W/2, H/2));
+  // Defer center-translate until after the flex layout has been painted,
+  // so clientWidth/clientHeight reflect the true canvas dimensions.
+  requestAnimationFrame(() => {
+    const W = svg2D.node().clientWidth, H = svg2D.node().clientHeight;
+    svg2D.call(zoomBehavior.transform, d3.zoomIdentity.translate(W/2, H/2));
+  });
 
   simulation = d3.forceSimulation()
     .force('link', d3.forceLink().id(d => d.id).distance(d => {
@@ -3655,12 +3659,20 @@ window.addEventListener('load',()=>{
   const impSlider=document.getElementById('m-importance');
   impSlider.style.background=`linear-gradient(to right, var(--ink) 0%, var(--ink) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1) 100%)`;
   updateGraph(false);
+  // Auto-fit once the simulation has run enough ticks to spread nodes,
+  // ensuring the full canvas is used regardless of saved positions or
+  // layout timing.
+  if(nodes.length) {
+    setTimeout(doZoomFit, 600);
+  }
 });
 window.addEventListener('resize',()=>{
   if(simulation)simulation.force('center',d3.forceCenter(0,0)).alpha(0.1).restart();
   const isMob=window.innerWidth<=767;
   if(overlayVisible&&nodes.length&&!isMob)document.getElementById('btn-panel-toggle').style.right='296px';
   if(is3D&&graph3D){const c=document.getElementById('graph-3d');graph3D.width(c.clientWidth).height(c.clientHeight);}
+  // Re-fit the 2D view to the new canvas dimensions
+  if(!is3D&&nodes.length&&zoomBehavior){ clearTimeout(window._resizeFitTimer); window._resizeFitTimer=setTimeout(doZoomFit,250); }
 });
 
 // ── HAMBURGER MENU ─────────────────────────────────────────
