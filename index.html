@@ -12,7 +12,7 @@
 <script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
 <style>
 /* ══════════════════════════════════════════════════════════
-   ECO.SYSTEM.OS  ·  Governance Mapper  ·  v1.040
+   ECO.SYSTEM.OS  ·  Governance Mapper  ·  v1.041
    UI: Editorial Swiss — inspired by Pacifica / Harry Atkins
    Palette: Pure white UI · Black canvas · Grayscale midtones
    ══════════════════════════════════════════════════════════ */
@@ -243,6 +243,7 @@ body { display: flex; flex-direction: column; }
 #filter-bar {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 0 16px;
   height: 32px;
@@ -254,6 +255,11 @@ body { display: flex; flex-direction: column; }
 }
 #filter-bar.hidden { height: 0; opacity: 0; padding: 0; overflow: hidden; pointer-events: none; }
 #filter-bar::-webkit-scrollbar { height: 0; }
+
+/* Inner row wrappers — invisible on desktop, flex on mobile */
+.fb-row {
+  display: contents; /* children flow as if row-wraps don't exist on desktop */
+}
 
 .f-label {
   font-size: 8px;
@@ -299,6 +305,7 @@ body { display: flex; flex-direction: column; }
   color: var(--ink-3);
   appearance: none; -webkit-appearance: none;
   outline: none; cursor: pointer;
+  flex-shrink: 0;
 }
 #filter-status-sel.active { background-color: var(--ink); color: #fff; border-color: var(--ink); }
 
@@ -331,6 +338,7 @@ body { display: flex; flex-direction: column; }
   white-space: nowrap;
   flex-shrink: 0;
   transition: all 0.1s;
+  margin-left: auto;
 }
 #btn-clear-filters:hover { border-color: var(--ink); color: var(--ink); }
 
@@ -1046,8 +1054,6 @@ input#m-importance::-moz-range-thumb {
 .pin-row input[type="checkbox"] { accent-color: var(--ink); cursor: pointer; }
 
 .modal-meta { font-size: 8px; font-weight: 300; color: var(--ink-4); margin-top: 4px; display: flex; gap: 14px; }
-.modal-actions { display: flex; gap: 6px; margin-top: 20px; }
-.modal-actions .left { margin-right: auto; display: flex; gap: 6px; }
 
 /* Modal two-column layout — equal height columns */
 .modal-cols {
@@ -1161,6 +1167,242 @@ input#m-importance::-moz-range-thumb {
   color: var(--ink-2); letter-spacing: 0.3px; background: var(--ui-bg2);
 }
 .kbd-desc { color: var(--ink-3); font-weight: 300; }
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE  ·  Mobile · Tablet · Desktop
+   ══════════════════════════════════════════════════════════ */
+
+/* ── TOUCH / SAFARI ENHANCEMENTS ───────────────────────── */
+html {
+  -webkit-text-size-adjust: 100%;
+  height: -webkit-fill-available;
+}
+body {
+  -webkit-tap-highlight-color: transparent;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+button, .tbtn, .di, .fchip, .mbtn, .ptab, .prop-edit-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.panel-scroll, #overlay-list, #qs-list, #modal-body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── MOBILE HAMBURGER BUTTON ────────────────────────────── */
+#btn-mobile-menu { display: none; margin-left: auto; flex-shrink: 0; }
+
+/* ── MOBILE DRAWER ──────────────────────────────────────── */
+#mobile-drawer {
+  display: flex;
+  flex-direction: column;
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-line);
+  flex-shrink: 0;
+  z-index: 195;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.22s ease;
+  pointer-events: none;
+}
+#mobile-drawer.open { max-height: 240px; pointer-events: auto; }
+.md-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--ui-line-lo);
+}
+.md-row:last-child { border-bottom: none; }
+.md-row .tbtn { height: 36px; font-size: 8.5px; padding: 0 10px; }
+.md-row .tbtn.primary { height: 30px; }
+#md-search-wrap { position: relative; flex: 1; min-width: 90px; }
+#md-search-wrap::before {
+  content: '⌕';
+  position: absolute; left: 8px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-4); font-size: 13px; pointer-events: none;
+}
+#md-search {
+  font-family: var(--font); font-size: 9px; font-weight: 300;
+  padding: 5px 8px 5px 26px;
+  border: 1px solid var(--ui-line); background: var(--ui-bg2);
+  color: var(--ink); outline: none; width: 100%;
+}
+#md-search::placeholder { color: var(--ink-4); }
+
+/* ── MOBILE PANEL FAB ───────────────────────────────────── */
+#btn-panel-fab {
+  display: none;
+  position: absolute;
+  bottom: 16px; right: 16px;
+  z-index: 50;
+  width: 42px; height: 42px;
+  background: rgba(17,17,17,0.92);
+  border: 1px solid rgba(255,255,255,0.18);
+  cursor: pointer;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: bottom 0.22s ease, border-color 0.12s;
+}
+#btn-panel-fab:hover { border-color: rgba(255,255,255,0.4); }
+#canvas-wrap.panel-open #btn-panel-fab { bottom: calc(55vh + 14px); }
+
+/* ── TABLET (768 – 1023px) ──────────────────────────────── */
+@media (max-width: 1023px) {
+  .brand-meta { display: none; }
+  #search { width: 150px; }
+  .tbtn:not(.primary):not(.tbtn-icon) { padding: 0 8px; letter-spacing: 0.8px; }
+}
+
+/* ── MOBILE (≤ 767px) ───────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* Topbar — taller for touch, stripped down */
+  #topbar { height: 48px; }
+  .brand { padding: 0 14px; border-right: none; }
+  .brand-meta { display: none; }
+
+  /* Hide all desktop toolbar groups; only add-btn group + hamburger stay */
+  #topbar > .tb-group,
+  #topbar > .tb-div,
+  #topbar > .tb-spacer { display: none !important; }
+  #topbar > .tb-group-add { display: flex !important; }
+  #btn-mobile-menu { display: flex !important; }
+
+  /* Bigger touch targets */
+  .tbtn { min-width: 44px; }
+  .tbtn.primary { height: 34px; }
+
+  /* Zoom-fit — bigger, moved above bottom-sheet */
+  #btn-zoom-fit { width: 42px; height: 42px; bottom: 70px; }
+
+  /* Side panel → bottom sheet */
+  #side-panel {
+    top: auto;
+    bottom: 0; left: 0; right: 0;
+    width: 100%; height: 55vh; max-height: 55vh;
+    border-left: none; border-right: none;
+    border-top: 1px solid var(--ui-line-hi);
+    transform: translateY(110%);
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  #side-panel.visible { transform: translateY(0); opacity: 1; }
+
+  /* Drag handle affordance on panel */
+  #panel-tabs { position: relative; padding-top: 6px; }
+  #panel-tabs::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 32px; height: 3px;
+    background: var(--ui-line-hi);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  /* Hide desktop panel toggle, show FAB */
+  #btn-panel-toggle { display: none; }
+  #btn-panel-fab    { display: flex; }
+
+  /* Status bar — hide extra items */
+  #statusbar .sb-item:nth-child(n+3) { display: none; }
+  .sb-hint { display: none; }
+
+  /* Footer — hide */
+  #footer { display: none; }
+
+  /* Filter bar hidden state override for mobile */
+  #filter-bar.hidden { max-height: 0; height: 0; }
+  #filter-bar {
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: visible;
+    padding: 0;
+    gap: 0;
+  }
+  #filter-bar:not(.hidden) { height: auto; }
+  .fb-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 7px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .fb-row::-webkit-scrollbar { height: 0; }
+  .fb-row-1 { border-bottom: 1px solid var(--ui-line-lo); }
+  .f-sep { display: none; }
+  .fchip { padding: 4px 12px; }
+  #filter-tag-input { width: 90px; flex-shrink: 0; }
+  #filter-tag-input:focus { width: 120px; }
+  #btn-clear-filters { margin-left: auto; flex-shrink: 0; padding: 4px 10px; }
+  #type-chips { display: flex; gap: 5px; flex-wrap: nowrap; }
+
+  /* Notification — above FAB */
+  #notif { bottom: 72px; }
+
+  /* Mode indicator */
+  #mode-indicator { right: 14px; top: 10px; }
+
+  /* Focus exit */
+  #btn-focus-exit { font-size: 7px; padding: 5px 12px; }
+
+  /* Empty hint — smaller */
+  #empty-hint .eh-brand { font-size: 9px; letter-spacing: 6px; }
+  #empty-hint .eh-text  { font-size: 9px; }
+
+  /* Modal — full-screen bottom sheet */
+  #modal-overlay { align-items: flex-end; padding: 0; }
+  #modal {
+    width: 100vw; max-width: 100vw;
+    height: 96vh;
+    border-left: none; border-right: none; border-bottom: none;
+    border-top: 2px solid var(--ink);
+    animation: mobileModalIn 0.22s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  @keyframes mobileModalIn {
+    from { transform: translateY(48px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  #modal-head   { padding: 18px 16px 12px; }
+  #modal-body   { padding: 0 16px 8px; }
+  .modal-actions { padding: 12px 16px; gap: 8px; }
+  .modal-cols   { grid-template-columns: 1fr; gap: 0; }
+  .modal-col > .msec:last-child { flex: none; }
+  .row2, .row3  { grid-template-columns: 1fr 1fr; }
+  .lnk-sel      { min-height: 54px; }
+
+  /* Quick Switcher */
+  #qs-overlay   { padding-top: 4vh; }
+  #qs-modal     { width: 100vw; max-width: 100vw; border-left: none; border-right: none; }
+  #qs-list      { max-height: 55vh; }
+
+  /* Help modal */
+  #help-modal {
+    width: 100vw; max-width: 100vw;
+    border-left: none; border-right: none;
+    padding: 20px 16px;
+  }
+
+  /* Dropdowns — wider on mobile */
+  .dropdown { min-width: 180px; }
+}
+
+/* ── SMALL MOBILE (≤ 390px) ─────────────────────────────── */
+@media (max-width: 390px) {
+  .brand-logotype { font-size: 9px; letter-spacing: 2px; }
+  .brand { padding: 0 10px; }
+  #modal-head    { padding: 14px 12px 10px; }
+  #modal-body    { padding: 0 12px 6px; }
+  .modal-actions { padding: 10px 12px; }
+  .mbtn { padding: 8px 10px; font-size: 7.5px; }
+}
 </style>
 </head>
 <body>
@@ -1175,7 +1417,7 @@ input#m-importance::-moz-range-thumb {
   </div>
 
   <!-- Create -->
-  <div class="tb-group">
+  <div class="tb-group tb-group-add">
     <button class="tbtn primary" id="btn-add">+ Node</button>
   </div>
 
@@ -1255,22 +1497,52 @@ input#m-importance::-moz-range-thumb {
     </div>
     <button class="tbtn tbtn-icon" id="btn-help" title="Keyboard shortcuts">?</button>
   </div>
+  <!-- Mobile hamburger (hidden on desktop) -->
+  <button id="btn-mobile-menu" class="tbtn tbtn-icon" aria-label="Menu" title="Menu">
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+      <path d="M1 1h14M1 6h14M1 11h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </button>
 
+</div>
+
+<!-- ══════════ MOBILE DRAWER ══════════════════════════════ -->
+<div id="mobile-drawer">
+  <div class="md-row">
+    <button class="tbtn primary" onclick="closeMobileMenu();document.getElementById('btn-add').click();">+ Node</button>
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-visuals').click();">Visuals</button>
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-links-toggle').click();">Links</button>
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-reset-layout').click();">Relayout</button>
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-toggle-filters').click();">Filters</button>
+  </div>
+  <div class="md-row">
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-import-json').click();">Import</button>
+    <button class="tbtn" onclick="closeMobileMenu();document.getElementById('btn-save-menu').click();">Save ▾</button>
+    <div id="md-search-wrap">
+      <input type="text" id="md-search" placeholder="Search nodes…"
+        oninput="const s=document.getElementById('search');s.value=this.value;s.dispatchEvent(new Event('input'));">
+    </div>
+    <button class="tbtn tbtn-icon" onclick="closeMobileMenu();document.getElementById('btn-help').click();">?</button>
+  </div>
 </div>
 
 <!-- ══════════ FILTER BAR ═════════════════════════════════ -->
 <div id="filter-bar" class="hidden">
-  <span class="f-label">Type</span>
-  <div id="type-chips"></div>
-  <div class="f-sep"></div>
-  <span class="f-label">Status</span>
-  <select id="filter-status-sel"><option value="">All</option></select>
-  <div class="f-sep"></div>
-  <span class="f-label">Tag</span>
-  <input type="text" id="filter-tag-input" placeholder="tag…">
-  <div class="f-sep"></div>
-  <button class="fchip" id="btn-orphan-filter">◎ Orphans</button>
-  <button id="btn-clear-filters" style="margin-left:6px">✕ Clear</button>
+  <!-- Row 1: Type chips + Status (desktop: single row; mobile: row 1) -->
+  <div class="fb-row fb-row-1">
+    <span class="f-label">Type</span>
+    <div id="type-chips"></div>
+    <div class="f-sep"></div>
+    <span class="f-label">Status</span>
+    <select id="filter-status-sel"><option value="">All</option></select>
+  </div>
+  <!-- Row 2: Tag + Orphans + Clear (desktop: continues same row; mobile: row 2) -->
+  <div class="fb-row fb-row-2">
+    <span class="f-label">Tag</span>
+    <input type="text" id="filter-tag-input" placeholder="tag…">
+    <button class="fchip" id="btn-orphan-filter">◎ Orphans</button>
+    <button id="btn-clear-filters">✕ Clear</button>
+  </div>
 </div>
 
 <!-- ══════════ CANVAS ═════════════════════════════════════ -->
@@ -1287,10 +1559,17 @@ input#m-importance::-moz-range-thumb {
   <div id="mode-indicator">3D MODE</div>
   <button id="btn-focus-exit">✕ EXIT FOCUS</button>
 
-  <!-- Panel toggle -->
+  <!-- Panel toggle (desktop) -->
   <button id="btn-panel-toggle" title="Toggle panel">
     <svg width="7" height="11" viewBox="0 0 8 12" fill="none">
       <path id="panel-chevron" d="M6 1L1.5 6L6 11" stroke="rgba(255,255,255,0.25)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- Panel FAB (mobile only) -->
+  <button id="btn-panel-fab" title="Toggle panel">
+    <svg width="15" height="12" viewBox="0 0 16 12" fill="none">
+      <path d="M1 1h14M1 5h10M1 9h12" stroke="rgba(255,255,255,0.6)" stroke-width="1.3" stroke-linecap="round"/>
     </svg>
   </button>
 
@@ -1385,7 +1664,7 @@ input#m-importance::-moz-range-thumb {
 <div id="footer">
   <span class="footer-copy">ECO.SYSTEM.OS · For personal use only</span>
   <span>© Constantinos Tolias 2026</span>
-  <span class="footer-ver">v1.040</span>
+  <span class="footer-ver">v1.041</span>
 </div>
 
 <div id="tooltip"></div>
@@ -1540,7 +1819,7 @@ input#m-importance::-moz-range-thumb {
 </div>
 <script>
 // ════════════════════════════════════════════════════════════
-//  ECO.SYSTEM.OS — Governance Network Mapper  v1.040
+//  ECO.SYSTEM.OS — Governance Network Mapper  v1.041
 // ════════════════════════════════════════════════════════════
 
 // ── Constants ─────────────────────────────────────────────
@@ -2772,8 +3051,9 @@ function updateOverlay() {
   });
   const panel=document.getElementById('side-panel');
   const toggle=document.getElementById('btn-panel-toggle');
-  if(nodes.length>0&&overlayVisible){panel.classList.add('visible');toggle.style.right='296px';}
-  else{panel.classList.remove('visible');toggle.style.right='0';}
+  const isMob=window.innerWidth<=767;
+  if(nodes.length>0&&overlayVisible){panel.classList.add('visible');if(!isMob)toggle.style.right='296px';document.getElementById('canvas-wrap').classList.add('panel-open');}
+  else{panel.classList.remove('visible');toggle.style.right='0';document.getElementById('canvas-wrap').classList.remove('panel-open');}
   if(activeOverlayTab==='tags')updateTagsTab();
   if(activeOverlayTab==='stats')updateStatsTab();
   if(activeOverlayTab==='properties'&&selectedNodeId)showProperties(selectedNodeId);
@@ -2911,8 +3191,9 @@ document.getElementById('btn-panel-toggle').onclick=()=>{
   const panel=document.getElementById('side-panel');
   const toggle=document.getElementById('btn-panel-toggle');
   const chevron=document.getElementById('panel-chevron');
-  if(overlayVisible){panel.classList.add('visible');toggle.style.right='296px';chevron.setAttribute('d','M6.5 1L1.5 6.5L6.5 12');}
-  else{panel.classList.remove('visible');toggle.style.right='0';chevron.setAttribute('d','M2 1L7 6.5L2 12');}
+  const isMob=window.innerWidth<=767;
+  if(overlayVisible){panel.classList.add('visible');if(!isMob)toggle.style.right='296px';chevron.setAttribute('d','M6.5 1L1.5 6.5L6.5 12');document.getElementById('canvas-wrap').classList.add('panel-open');}
+  else{panel.classList.remove('visible');toggle.style.right='0';chevron.setAttribute('d','M2 1L7 6.5L2 12');document.getElementById('canvas-wrap').classList.remove('panel-open');}
 };
 
 // ── SVG click to deselect ──────────────────────────────────
@@ -3295,7 +3576,7 @@ document.getElementById('vi-cluster').addEventListener('click', function() {
 document.getElementById('btn-save-menu').onclick=e=>{e.stopPropagation();document.getElementById('save-panel').classList.toggle('show');};
 
 function graphToJSON(){
-  return JSON.stringify({version:'1.040',nodes:nodes.map(n=>({...n,vx:0,vy:0,fx:null,fy:null,_dragging:undefined})),links:[],customTypes,customStatuses},null,2);
+  return JSON.stringify({version:'1.041',nodes:nodes.map(n=>({...n,vx:0,vy:0,fx:null,fy:null,_dragging:undefined})),links:[],customTypes,customStatuses},null,2);
 }
 function loadFromJSON(json) {
   const data=typeof json==='string'?JSON.parse(json):json;
@@ -3377,9 +3658,47 @@ window.addEventListener('load',()=>{
 });
 window.addEventListener('resize',()=>{
   if(simulation)simulation.force('center',d3.forceCenter(0,0)).alpha(0.1).restart();
-  if(overlayVisible&&nodes.length)document.getElementById('btn-panel-toggle').style.right='296px';
+  const isMob=window.innerWidth<=767;
+  if(overlayVisible&&nodes.length&&!isMob)document.getElementById('btn-panel-toggle').style.right='296px';
   if(is3D&&graph3D){const c=document.getElementById('graph-3d');graph3D.width(c.clientWidth).height(c.clientHeight);}
 });
+
+// ── HAMBURGER MENU ─────────────────────────────────────────
+function closeMobileMenu(){document.getElementById('mobile-drawer').classList.remove('open');}
+document.getElementById('btn-mobile-menu').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('mobile-drawer').classList.toggle('open');
+});
+document.addEventListener('click', e => {
+  const drawer=document.getElementById('mobile-drawer');
+  const menuBtn=document.getElementById('btn-mobile-menu');
+  if(drawer.classList.contains('open')&&!drawer.contains(e.target)&&e.target!==menuBtn&&!menuBtn.contains(e.target)){
+    drawer.classList.remove('open');
+  }
+});
+
+// ── MOBILE PANEL FAB ───────────────────────────────────────
+document.getElementById('btn-panel-fab').addEventListener('click', () => {
+  document.getElementById('btn-panel-toggle').click();
+});
+
+// ── DOUBLE-TAP TO EDIT (mobile touch) ─────────────────────
+(function(){
+  let lastTap=0, lastGroup=null;
+  document.getElementById('graph').addEventListener('touchend', e => {
+    const now=Date.now();
+    const touch=e.changedTouches[0];
+    const el=document.elementFromPoint(touch.clientX, touch.clientY);
+    const grp=el&&el.closest('.node-group');
+    if(grp&&now-lastTap<350&&grp===lastGroup){
+      e.preventDefault();
+      const d=grp.__data__||grp.__forceData__;
+      const id=d&&d.id;
+      if(id)openModal(id);
+    }
+    lastTap=now; lastGroup=grp;
+  },{passive:false});
+})();
 </script>
 </body>
 </html>
